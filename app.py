@@ -5,13 +5,14 @@ Uso:
 """
 
 import glob
+import hmac
 import json
 import os
 import threading
 import time
 import uuid
 
-from flask import Flask, abort, jsonify, request, send_file, send_from_directory
+from flask import Flask, Response, abort, jsonify, request, send_file, send_from_directory
 
 from src.exporter import OUTPUT_DIR
 from src.pipeline import business_key, run_job
@@ -22,6 +23,21 @@ app = Flask(__name__, static_folder=os.path.join(BASE_DIR, "web"), static_url_pa
 
 JOBS = {}
 LOCK = threading.Lock()
+
+# En la nube (Railway) no hay pantalla ni carpeta local que abrir.
+CLOUD = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("CLOUD"))
+# Si se define, toda la app pide usuario/contraseña (HTTP Basic).
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
+
+
+@app.before_request
+def require_password():
+    if not APP_PASSWORD:
+        return None
+    auth = request.authorization
+    if auth and hmac.compare_digest(auth.password or "", APP_PASSWORD):
+        return None
+    return Response("Acceso restringido", 401, {"WWW-Authenticate": 'Basic realm="Scraper"'})
 
 
 def new_job(params):
@@ -139,7 +155,7 @@ def create_job():
         "zonas": body.get("zonas", ""),
         "max_resultados": int(body.get("max_resultados") or 0),
         "concurrencia": int(body.get("concurrencia") or 3),
-        "headless": not bool(body.get("ver_navegador")),
+        "headless": CLOUD or not bool(body.get("ver_navegador")),
         "analizar_webs": bool(body.get("analizar_webs", True)),
         "rating_min": float(body.get("rating_min") or 0),
         "resenas_min": int(body.get("resenas_min") or 0),
@@ -154,6 +170,11 @@ def create_job():
         JOBS[job["id"]] = job
     run_in_background(job)
     return jsonify({"id": job["id"]})
+
+
+@app.get("/api/config")
+def config():
+    return jsonify({"cloud": CLOUD})
 
 
 @app.get("/api/jobs/<job_id>")
@@ -226,6 +247,8 @@ def download(name):
 
 @app.post("/api/open-folder")
 def open_folder():
+    if CLOUD:
+        abort(404)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.system(f'open "{OUTPUT_DIR}"')
     return jsonify({"ok": True})
@@ -234,4 +257,4 @@ def open_folder():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5050))
     print(f"\n  Scraper de negocios → http://localhost:{port}\n")
-    app.run(host="127.0.0.1", port=port, debug=False, threaded=True)
+    app.run(host="0.0.0.0" if CLOUD else "127.0.0.1", port=port, debug=False, threaded=True)

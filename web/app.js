@@ -127,6 +127,14 @@ $("#stopBtn").addEventListener("click", async () => {
 
 $("#openFolder").addEventListener("click", () => api("/api/open-folder", { method: "POST" }).catch(() => {}));
 
+// En la nube no hay carpeta local ni navegador visible.
+api("/api/config").then((cfg) => {
+  if (!cfg.cloud) return;
+  $("#openFolder").style.display = "none";
+  const verNav = $('input[name="ver_navegador"]')?.closest("label");
+  if (verNav) verNav.style.display = "none";
+}).catch(() => {});
+
 // ---------------------------------------------------------------- job flow
 
 function resetView(title) {
