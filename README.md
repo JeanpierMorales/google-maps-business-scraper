@@ -98,6 +98,18 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
+### Con Docker (opcional)
+
+El repo incluye un `Dockerfile` con Chromium listo, por si quieres publicarlo en un servidor (Railway, Render, etc.):
+
+```bash
+docker build -t scraper .
+docker run -p 8080:8080 -e APP_PASSWORD=tu-clave scraper   # → http://localhost:8080
+```
+
+* `APP_PASSWORD`: si se define, la app pide esa contraseña (cualquier usuario).
+* En modo servidor el navegador siempre va oculto y los Excel se borran al reiniciar: descárgalos al terminar.
+
 ## Límites
 
 * Google Maps muestra como máximo ~120 resultados por búsqueda. Usa **zonas** para cubrir más.
