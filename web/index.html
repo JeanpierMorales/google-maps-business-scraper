@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scraper de Negocios</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230f766e'/><path d='M16 7a6.5 6.5 0 0 0-6.5 6.5C9.5 18.4 16 25 16 25s6.5-6.6 6.5-11.5A6.5 6.5 0 0 0 16 7Zm0 9a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z' fill='white'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>
+      </span>
+      <div>
+        <strong>Scraper de Negocios</strong>
+        <span class="muted">Google Maps → Excel de prospectos</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn ghost" id="openFolder" type="button">
+        <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg>
+        Carpeta de resultados
+      </button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- ================= Panel izquierdo ================= -->
+    <aside class="sidebar">
+      <form class="card form" id="searchForm" autocomplete="off">
+        <h2>Nueva búsqueda</h2>
+
+        <label class="field">
+          <span>Tipo de negocio</span>
+          <input name="tipo" id="tipo" placeholder="Barberías, restaurantes, dentistas…" required>
+          <small>Puedes poner varios separados por coma.</small>
+        </label>
+
+        <label class="field">
+          <span>Ubicación</span>
+          <input name="ubicacion" id="ubicacion" placeholder="Piura, Perú" required>
+        </label>
+
+        <label class="field">
+          <span>Zonas o distritos <em>(opcional)</em></span>
+          <textarea name="zonas" id="zonas" rows="2" placeholder="Castilla, Veintiséis de Octubre, Centro"></textarea>
+          <small>Google muestra ~120 resultados por búsqueda. Dividir por zonas encuentra muchos más.</small>
+        </label>
+
+        <div class="field">
+          <span>Resultados por búsqueda</span>
+          <div class="segmented" id="limit">
+            <button type="button" data-value="20">20</button>
+            <button type="button" data-value="60">60</button>
+            <button type="button" data-value="120">120</button>
+            <button type="button" data-value="0" class="active">Todos</button>
+          </div>
+        </div>
+
+        <details class="advanced">
+          <summary>Filtros y opciones</summary>
+          <div class="grid-2">
+            <label class="field">
+              <span>Rating mínimo</span>
+              <select name="rating_min">
+                <option value="0">Cualquiera</option>
+                <option value="3.5">3.5+</option>
+                <option value="4">4.0+</option>
+                <option value="4.5">4.5+</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Reseñas mínimas</span>
+              <select name="resenas_min">
+                <option value="0">Cualquiera</option>
+                <option value="5">5+</option>
+                <option value="20">20+</option>
+                <option value="50">50+</option>
+                <option value="100">100+</option>
+              </select>
+            </label>
+          </div>
+          <label class="field">
+            <span>Distancia máxima al centro</span>
+            <select name="radio_km">
+              <option value="0">Automática (según la ubicación)</option>
+              <option value="3">3 km</option>
+              <option value="5">5 km</option>
+              <option value="10">10 km</option>
+              <option value="25">25 km</option>
+              <option value="60">60 km</option>
+              <option value="150">150 km (región)</option>
+            </select>
+            <small>Descarta lo que Google muestra fuera de la zona buscada.</small>
+          </label>
+          <label class="check"><input type="checkbox" name="solo_con_telefono"> Solo con teléfono</label>
+          <label class="check"><input type="checkbox" name="solo_sin_web"> Solo negocios sin web propia</label>
+          <label class="check"><input type="checkbox" name="excluir_cerrados" checked> Excluir cerrados</label>
+          <label class="check"><input type="checkbox" name="analizar_webs" checked> Revisar sitios web (redes, emails, estado)</label>
+          <label class="check"><input type="checkbox" name="ver_navegador"> Mostrar el navegador mientras trabaja</label>
+          <label class="field">
+            <span>Pestañas en paralelo: <b id="concurrencyValue">3</b></span>
+            <input type="range" name="concurrencia" id="concurrencia" min="1" max="5" value="3">
+            <small>Más pestañas = más rápido, pero más riesgo de que Google limite.</small>
+          </label>
+        </details>
+
+        <button class="btn primary block" id="startBtn" type="submit">
+          <svg viewBox="0 0 24 24"><path d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.2 4.2-1.4 1.4-4.2-4.2A7.5 7.5 0 1 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z"/></svg>
+          Buscar negocios
+        </button>
+        <button class="btn danger block hidden" id="stopBtn" type="button">Detener y guardar lo obtenido</button>
+        <p class="form-error" id="formError" role="alert"></p>
+      </form>
+
+      <section class="card history">
+        <div class="history-head">
+          <h2>Historial</h2>
+          <button class="icon-btn" id="refreshHistory" type="button" title="Actualizar" aria-label="Actualizar historial">
+            <svg viewBox="0 0 24 24"><path d="M12 5a7 7 0 1 0 6.7 9h-2.1A5 5 0 1 1 12 7c1.4 0 2.6.6 3.5 1.5L13 11h7V4l-2.5 2.5A8.9 8.9 0 0 0 12 5Z"/></svg>
+          </button>
+        </div>
+        <ul id="historyList" class="history-list"></ul>
+      </section>
+    </aside>
+
+    <!-- ================= Panel principal ================= -->
+    <main class="main">
+      <section class="empty card" id="emptyState">
+        <div class="empty-inner">
+          <h1>Encuentra negocios y conviértelos en prospectos</h1>
+          <p>Escribe un tipo de negocio y una ubicación. El scraper recorre Google Maps, revisa la web de cada negocio y te entrega un Excel ordenado por oportunidad: quién no tiene web, quién tiene WhatsApp y quién tiene muchas reseñas.</p>
+          <div class="examples">
+            <span class="muted">Prueba con:</span>
+            <button type="button" class="chip" data-tipo="Barberías" data-ubicacion="Piura">Barberías en Piura</button>
+            <button type="button" class="chip" data-tipo="Restaurantes" data-ubicacion="Castilla, Piura">Restaurantes en Castilla</button>
+            <button type="button" class="chip" data-tipo="Dentistas" data-ubicacion="Sullana, Piura">Dentistas en Sullana</button>
+          </div>
+          <ol class="how">
+            <li><b>Busca</b> en Google Maps y carga toda la lista.</li>
+            <li><b>Abre cada ficha</b>: teléfono, dirección, horario, reseñas, perfil reclamado.</li>
+            <li><b>Revisa la web</b>: redes, email, WhatsApp, si está caída o no es móvil.</li>
+            <li><b>Puntúa y exporta</b> un Excel con hojas de leads y resumen.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="card status hidden" id="statusCard">
+        <div class="status-head">
+          <div>
+            <div class="eyebrow" id="statusEyebrow">En curso</div>
+            <h1 id="statusTitle">—</h1>
+          </div>
+          <div class="status-actions">
+            <span class="timer" id="timer">0:00</span>
+            <a class="btn primary hidden" id="downloadBtn" href="#">
+              <svg viewBox="0 0 24 24"><path d="M11 3h2v9.2l3.3-3.3 1.4 1.4L12 16l-5.7-5.7 1.4-1.4 3.3 3.3V3ZM5 18h14v2H5v-2Z"/></svg>
+              Descargar Excel
+            </a>
+          </div>
+        </div>
+        <ol class="steps" id="steps">
+          <li data-phase="lista"><span></span>Buscar en Maps</li>
+          <li data-phase="detalle"><span></span>Leer fichas</li>
+          <li data-phase="webs"><span></span>Revisar webs</li>
+          <li data-phase="excel"><span></span>Excel</li>
+        </ol>
+        <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="progress-meta">
+          <span id="progressText">Preparando…</span>
+          <button type="button" class="link-btn" id="toggleLog">Ver registro</button>
+        </div>
+        <pre class="log hidden" id="log"></pre>
+      </section>
+
+      <section class="kpis hidden" id="kpis"></section>
+
+      <section class="card results hidden" id="results">
+        <div class="toolbar">
+          <div class="search">
+            <svg viewBox="0 0 24 24"><path d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.2 4.2-1.4 1.4-4.2-4.2A7.5 7.5 0 1 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z"/></svg>
+            <input id="searchInput" placeholder="Filtrar por nombre, categoría, dirección…" aria-label="Filtrar resultados">
+          </div>
+          <div class="chips" id="filterChips">
+            <button type="button" class="chip active" data-filter="all">Todos <b></b></button>
+            <button type="button" class="chip" data-filter="alta">Prioridad alta <b></b></button>
+            <button type="button" class="chip" data-filter="sinweb">Sin web <b></b></button>
+            <button type="button" class="chip" data-filter="whatsapp">Con WhatsApp <b></b></button>
+            <button type="button" class="chip" data-filter="email">Con email <b></b></button>
+            <button type="button" class="chip" data-filter="webmala">Web a mejorar <b></b></button>
+          </div>
+          <div class="segmented small" id="viewToggle">
+            <button type="button" data-view="table" class="active">Tabla</button>
+            <button type="button" data-view="map">Mapa</button>
+          </div>
+        </div>
+
+        <div class="table-wrap" id="tableView">
+          <table class="data">
+            <thead>
+              <tr>
+                <th data-sort="lead_score">Prioridad</th>
+                <th data-sort="nombre">Negocio</th>
+                <th data-sort="rating">Rating</th>
+                <th>Contacto</th>
+                <th data-sort="tipo_web">Web</th>
+                <th>Redes</th>
+                <th data-sort="direccion">Dirección</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <p class="table-empty hidden" id="tableEmpty">Ningún negocio coincide con este filtro.</p>
+        </div>
+        <div class="map-view hidden" id="mapView"><div id="map"></div></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Panel de detalle -->
+  <div class="drawer-backdrop hidden" id="drawerBackdrop"></div>
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <button class="icon-btn drawer-close" id="drawerClose" type="button" aria-label="Cerrar">
+      <svg viewBox="0 0 24 24"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4 6.4 5Z"/></svg>
+    </button>
+    <div id="drawerBody"></div>
+  </aside>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
