@@ -2,7 +2,7 @@
 
 Busca negocios en Google Maps por **tipo** y **ubicación**, revisa la web de cada uno y entrega un **Excel detallado de prospectos**, ordenado por oportunidad (quién no tiene web, quién tiene WhatsApp, quién tiene muchas reseñas, etc.).
 
-Incluye una **interfaz web local** para ver el progreso en vivo, filtrar resultados, verlos en un mapa y descargar el Excel.
+Incluye una vlara **interfaz web local** para ver el progreso en vivo, filtrar resultados, verlos en un mapa y descargar el Excel.
 
 ## Uso rápido
 
